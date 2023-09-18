@@ -162,10 +162,7 @@ class RandomBlackjackPolicy(object):
         """
         # YOUR CODE HERE
         # raise NotImplementedError
-        probs = np.zeros((len(states), 2))
-        probs[:, 0] = 0.5
-        probs[:, 1] = 0.5
-
+        probs = np.full((len(states), len(actions)), 0.5)
         return probs
     
     def sample_action(self, state):
@@ -213,24 +210,26 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
     returns_count = defaultdict(float)
 
     for episode in tqdm(range(num_episodes)):
+
         states, actions, rewards, dones = sampling_function(env, behavior_policy)
 
         G = 0
         W = 1
 
         for t in range(len(states))[::-1]:
-
+                
             G = discount_factor * G + rewards[t]
             state = states[t]
-
+    
             if state not in states[:t]:
+    
                 returns_count[state] += W
                 V[state] += (W / returns_count[state]) * (G - V[state])
-
+    
             if actions[t] != target_policy.sample_action(state):
                 break
-
-            W *= 1 / behavior_policy.get_probs([state], [actions[t]])[0, actions[t]]
+    
+            W *= 1 / behavior_policy.get_probs([state], [actions[t]])[0]
     
     # YOUR CODE HERE
     # raise NotImplementedError
