@@ -162,8 +162,10 @@ class RandomBlackjackPolicy(object):
         """
         # YOUR CODE HERE
         # raise NotImplementedError
-        probs = np.full((len(states), len(actions)), 0.5)
-        return probs
+        probs = []
+        for state, action in zip(states, actions):
+            probs.append(0.5)
+        return np.array(probs)
     
     def sample_action(self, state):
         """
