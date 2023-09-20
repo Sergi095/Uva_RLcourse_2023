@@ -185,7 +185,6 @@ class RandomBlackjackPolicy(object):
         action = np.random.choice([0,1])
         return action
 
-
 def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, discount_factor=1.0,
                            sampling_function=sample_episode):
     """
@@ -205,21 +204,15 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
         The state is a tuple, and the value is a float.
     """
 
+
     V = defaultdict(float) # V(s)
     returns_count = defaultdict(float) 
-    epsilon = 1e-6
-
-
-    has_usable_ace = isinstance(env.observation_space, tuple) and len(env.observation_space) == 3
 
     state_tuples = [(player_sum, dealer_card, bool(usable_ace)) for player_sum in range(env.observation_space.spaces[0].n)
                        for dealer_card in range(env.observation_space.spaces[1].n)
                        for usable_ace in range(env.observation_space.spaces[2].n)]
 
     returns = {state_tuple: [] for state_tuple in state_tuples}
-
-    if has_usable_ace:
-        returns_count = Counter({state_tuple: 0 for state_tuple in state_tuples})
 
     for episode in tqdm(range(num_episodes)):
         
@@ -232,7 +225,7 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
 
         pi = target_policy.get_probs(states, actions)
         behavior_pi = behavior_policy.get_probs(states, actions)
-        importance_sampling_ratio = pi / (behavior_pi + epsilon)
+        importance_sampling_ratio = pi / behavior_pi
 
         for t in reversed(range(len(states))):
 
@@ -248,12 +241,8 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
             else:
                 returns[state].append(G)
             
-            returns_count[state] += 1 if has_usable_ace else 0
+            returns_count[state] += 1
 
     V = {state: np.nan_to_num(np.mean(value)) for (state, value) in returns.items()}
-
-    if has_usable_ace:
-        has_usable_ace = [True for item in list(returns_count) if returns_count[item] == 0]
-
 
     return V
