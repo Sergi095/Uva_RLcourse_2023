@@ -206,33 +206,38 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
         The state is a tuple and the value is a float.
     """
 
-    # Keeps track of current V and count of returns for each state
-    # to calculate an update.
     V = defaultdict(float)
-    C = defaultdict(float)
-
+    returns_count = defaultdict(float)
+    returns_sum = defaultdict(float)
+    
     # YOUR CODE HERE
-
+    
     for i in tqdm(range(num_episodes)):
 
         states, actions, rewards, dones = sampling_function(env, behavior_policy)
 
         G = 0
-        W = 1
+        W = 1  # Importance sampling ratio, start with 1 as we'll multiply ratios for each step
 
         for t in reversed(range(len(states))):
-
-            G = discount_factor * G + rewards[t + 1]
             state = states[t]
+            action = actions[t]
+            G = discount_factor * G + rewards[t]
 
-            if state not in states[:t]:
+            # Calculate the importance sampling ratio for this step
+            behavior_prob = behavior_policy.get_probs([state], [action])[0]
+            target_prob = target_policy.get_probs([state], [action])[0]
+            W *= target_prob / behavior_prob
 
-                C[state] += W
-                V[state] += (W / C[state]) * (G - V[state])
-
-            if actions[t] != target_policy.sample_action(state):
+            # Update the cumulative returns and count for the state
+            if state not in states[:t]:  
+                returns_count[state] += 1
+                returns_sum[state] += W * G
+                V[state] = returns_sum[state] / returns_count[state]
+                
+            # If weight becomes 0, then further steps in the episode won't contribute
+            if W == 0:
                 break
-
-            W *= 1 / behavior_policy.get_probs([state], [actions[t]])[0]
-
+    # End Code
     return V
+
