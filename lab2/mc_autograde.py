@@ -207,12 +207,16 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
 
     V = defaultdict(float) # V(s)
     returns_count = defaultdict(float) 
+    
 
+
+    # save the state tuples in a list
     state_tuples = [(player_sum, dealer_card, bool(usable_ace)) for player_sum in range(env.observation_space.spaces[0].n)
                        for dealer_card in range(env.observation_space.spaces[1].n)
                        for usable_ace in range(env.observation_space.spaces[2].n)]
 
-    returns = {state_tuple: [] for state_tuple in state_tuples}
+    # dictionary to store the returns for each state-action pair
+    state_action_returns = {state_tuple: [] for state_tuple in state_tuples}
 
     for episode in tqdm(range(num_episodes)):
         
@@ -227,22 +231,23 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
         behavior_pi = behavior_policy.get_probs(states, actions)
         importance_sampling_ratio = pi / behavior_pi
 
+        # loop over the episode in reverse order
         for t in reversed(range(len(states))):
 
             G = discount_factor * G + rewards[t]
             state = states[t]
             action = actions[t]
-
+            # updating W
             W = np.cumprod(importance_sampling_ratio[t:])
 
             G = W[0] * G
-            if len(returns[state]) == 0:
-                returns[state] = [G]
+            if len(state_action_returns[state]) == 0:
+                state_action_returns[state] = [G]
             else:
-                returns[state].append(G)
+                state_action_returns[state].append(G)
             
             returns_count[state] += 1
 
-    V = {state: np.nan_to_num(np.mean(value)) for (state, value) in returns.items()}
+    V = {state: np.nan_to_num(np.mean(value)) for (state, value) in state_action_returns.items()}
 
     return V
