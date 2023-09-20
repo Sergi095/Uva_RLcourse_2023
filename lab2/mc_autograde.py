@@ -1,5 +1,5 @@
 import numpy as np
-from collections import defaultdict
+from collections import defaultdict, Counter
 from tqdm import tqdm as _tqdm
 
 def tqdm(*args, **kwargs):
@@ -66,16 +66,50 @@ class SimpleBlackjackPolicy(object):
         # End Code
         return action
 
-def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, discount_factor=1.0,
-                           sampling_function=sample_episode):
+def sample_episode(env, policy):
+    """
+    A sampling routine. Given environment and a policy samples one episode and returns states, actions, rewards
+    and dones from environment's step function and policy's sample_action function as lists.
+
+    Args:
+        env: OpenAI gym environment.
+        policy: A policy which allows us to sample actions with its sample_action method.
+
+    Returns:
+        Tuple of lists (states, actions, rewards, dones). All lists should have same length. 
+        Hint: Do not include the state after the termination in the list of states.
+    """
+    states = []
+    actions = []
+    rewards = []
+    dones = []
+    
+    # YOUR CODE HERE
+    
+    state = env.reset()
+    done = False
+    
+    while not done:
+            
+        states.append(state)
+        action = policy.sample_action(state)
+        actions.append(action)
+        state, reward, done, _ = env.step(action)
+        rewards.append(reward)
+        dones.append(done)
+
+    # End Code
+
+    return states, actions, rewards, dones
+
+def mc_prediction(env, policy, num_episodes, discount_factor=1.0, sampling_function=sample_episode):
     """
     Monte Carlo prediction algorithm. Calculates the value function
-    for a given target policy using behavior policy and ordinary importance sampling.
+    for a given policy using sampling.
     
     Args:
         env: OpenAI gym environment.
-        behavior_policy: A policy used to collect the data.
-        target_policy: A policy which value function we want to estimate.
+        policy: A policy which allows us to sample actions with its sample_action method.
         num_episodes: Number of episodes to sample.
         discount_factor: Gamma discount factor.
         sampling_function: Function that generates data from one episode.
@@ -84,36 +118,142 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
         A dictionary that maps from state -> value.
         The state is a tuple and the value is a float.
     """
+
     # Keeps track of current V and count of returns for each state
-    # to calculate an update.   
+    # to calculate an update.
     V = defaultdict(float)
     returns_count = defaultdict(float)
+    
+    # YOUR CODE HERE
+    
+    for i in tqdm(range(num_episodes)):
 
-    for episode in tqdm(range(num_episodes)): 
+        states, actions, rewards, dones = sampling_function(env, policy)
+
+        G = 0
+
+        for t in reversed(range(len(states))):
+
+            G = discount_factor * G + rewards[t]
+            state = states[t]
+
+            if state not in states[:t]:
+                returns_count[state] += 1
+                V[state] += (G - V[state]) / returns_count[state]
+    
+    # End Code
+    return V
+
+class RandomBlackjackPolicy(object):
+    """
+    A random BlackJack policy.
+    """
+    def get_probs(self, states, actions):
+        """
+        This method takes a list of states and a list of actions and returns a numpy array that contains 
+        a probability of perfoming action in given state for every corresponding state action pair. 
+
+        Args:
+            states: a list of states.
+            actions: a list of actions.
+
+        Returns:
+            Numpy array filled with probabilities (same length as states and actions)
+        """
+        # YOUR CODE HERE
+        # raise NotImplementedError
+        probs = np.ones(len(states))/2
+        return probs
+    
+    def sample_action(self, state):
+        """
+        This method takes a state as input and returns an action sampled from this policy.  
+
+        Args:
+            state: current state
+
+        Returns:
+            An action (int).
+        """
+        # YOUR CODE HERE
+        # raise NotImplementedError
+        # if state[0] >= 20:
+        #     action = 0 # stick
+
+        # else:
+        #     action = 1 # hit
+        action = np.random.choice([0,1])
+        return action
+
+
+def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, discount_factor=1.0,
+                           sampling_function=sample_episode):
+    """
+    Monte Carlo prediction algorithm. Calculates the value function
+    for a given target policy using a behavior policy and ordinary importance sampling.
+    
+    Args:
+        env: OpenAI gym environment.
+        behavior_policy: A policy used to collect the data.
+        target_policy: A policy whose value function we want to estimate.
+        num_episodes: Number of episodes to sample.
+        discount_factor: Gamma discount factor.
+        sampling_function: Function that generates data from one episode.
+    
+    Returns:
+        A dictionary that maps from state -> value.
+        The state is a tuple, and the value is a float.
+    """
+
+    V = defaultdict(float) # V(s)
+    returns_count = defaultdict(float) 
+    epsilon = 1e-6
+
+
+    has_usable_ace = isinstance(env.observation_space, tuple) and len(env.observation_space) == 3
+
+    state_tuples = [(player_sum, dealer_card, bool(usable_ace)) for player_sum in range(env.observation_space.spaces[0].n)
+                       for dealer_card in range(env.observation_space.spaces[1].n)
+                       for usable_ace in range(env.observation_space.spaces[2].n)]
+
+    returns = {state_tuple: [] for state_tuple in state_tuples}
+
+    if has_usable_ace:
+        returns_count = Counter({state_tuple: 0 for state_tuple in state_tuples})
+
+    for episode in tqdm(range(num_episodes)):
         
-        states, actions, rewards, _ = sampling_function(env, behavior_policy)
-        
+        env.reset()
+
+        states, actions, rewards, dones = sampling_function(env, behavior_policy)
+
         G = 0
         W = 1
 
-        
+        pi = target_policy.get_probs(states, actions)
+        behavior_pi = behavior_policy.get_probs(states, actions)
+        importance_sampling_ratio = pi / (behavior_pi + epsilon)
+
         for t in reversed(range(len(states))):
-            state, action, reward = states[t], actions[t], rewards[t]
-            
-            # Update total return
-            G = discount_factor * G + reward
-            returns_count[state] += 1
 
-            # Here, updating W before V as per your hint
-            W *= target_policy[state][action] / (behavior_policy[state][action])
+            G = discount_factor * G + rewards[t]
+            state = states[t]
+            action = actions[t]
 
-            # If behavior policy is zero for taken action, we can't use this data for off-policy learning
-            if behavior_policy[state][action] == 0:
-                break
-            
-            # Value update step using the formula: Vn = Vn−1 + (1/n) * (Wn * Gn − Vn−1)
-            V[state] += (W * G - V)
+            W = np.cumprod(importance_sampling_ratio[t:])
 
+            G = W[0] * G
+            if len(returns[state]) == 0:
+                returns[state] = [G]
+            else:
+                returns[state].append(G)
             
+            returns_count[state] += 1 if has_usable_ace else 0
+
+    V = {state: np.nan_to_num(np.mean(value)) for (state, value) in returns.items()}
+
+    if has_usable_ace:
+        has_usable_ace = [True for item in list(returns_count) if returns_count[item] == 0]
+
+
     return V
-        
