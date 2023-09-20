@@ -222,7 +222,7 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
 
         for t in reversed(range(len(states))):
 
-            G = discount_factor * G + rewards[t]
+            G = discount_factor * G + rewards[t + 1]
             state = states[t]
 
             if state not in states[:t]:
