@@ -209,32 +209,30 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
     # Keeps track of current V and count of returns for each state
     # to calculate an update.
     V = defaultdict(float)
-    returns_count = defaultdict(float)
+    C = defaultdict(float)
 
-    for episode in tqdm(range(num_episodes)):
+    # YOUR CODE HERE
+
+    for i in tqdm(range(num_episodes)):
 
         states, actions, rewards, dones = sampling_function(env, behavior_policy)
 
         G = 0
         W = 1
 
-        for t in range(len(states))[::-1]:
-                
+        for t in reversed(range(len(states))):
+
             G = discount_factor * G + rewards[t]
             state = states[t]
-    
+
             if state not in states[:t]:
-    
-                returns_count[state] += W
-                V[state] += (W / returns_count[state]) * (G - V[state])
-    
+
+                C[state] += W
+                V[state] += (W / C[state]) * (G - V[state])
+
             if actions[t] != target_policy.sample_action(state):
                 break
-    
-            W *= 1 / behavior_policy.get_probs([state], [actions[t]])[0]
-    
-    # YOUR CODE HERE
-    # raise NotImplementedError
 
+            W *= 1 / behavior_policy.get_probs([state], [actions[t]])[0]
 
     return V
