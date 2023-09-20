@@ -240,7 +240,7 @@ def mc_importance_sampling(env, behavior_policy, target_policy, num_episodes, di
             G = W[0] * G
 
             # Update state-action returns
-            if len(returns[state]) == 0:
+            if len(state_action_returns[state]) == 0:
                 state_action_returns[state] = [G]
 
             else:
