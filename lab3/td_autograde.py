@@ -26,11 +26,12 @@ class EpsilonGreedyPolicy(object):
         # YOUR CODE HERE
         
         if np.random.random() < self.epsilon:
-            action = np.random.choice(env.nA)
+            action = np.random.randint(len(self.Q[obs]))
+            
         else:
             action = np.argmax(self.Q[obs])
             
-        return action
+        return int(action)
 
 def sarsa(env, policy, Q, num_episodes, discount_factor=1.0, alpha=0.5):
     """
@@ -72,10 +73,11 @@ def sarsa(env, policy, Q, num_episodes, discount_factor=1.0, alpha=0.5):
             
             if done:
                 break
-
-        
+ 
         stats.append((i, R))
+
     episode_lengths, episode_returns = zip(*stats)
+    
     return Q, (episode_lengths, episode_returns)
 
 def q_learning(env, policy, Q, num_episodes, discount_factor=1.0, alpha=0.5):
