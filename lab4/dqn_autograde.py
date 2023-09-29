@@ -51,7 +51,7 @@ def get_epsilon(it):
     # raise NotImplementedError
     # it means iteration
     if it < 1000:
-        epsilon = 1 - 0.9 * it / 1000
+        epsilon = 1 - 0.95 * it / 1000
     else:
         epsilon = 0.05
     return epsilon
