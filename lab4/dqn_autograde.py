@@ -121,7 +121,7 @@ def compute_targets(Q, rewards, next_states, dones, discount_factor):
     """
     # YOUR CODE HERE
     # raise NotImplementedError
-    return rewards + discount_factor * torch.max(Q(next_states), dim=1)[0].unsqueeze(1) * (1 - dones)
+    return rewards + discount_factor * torch.max(Q(next_states), dim=1)[0].unsqueeze(1) * (1 - dones.float())
 
 def train(Q, memory, optimizer, batch_size, discount_factor):
     # DO NOT MODIFY THIS FUNCTION
