@@ -143,24 +143,23 @@ def compute_reinforce_loss(policy, episode, discount_factor):
     
     states, actions, rewards, dones = episode
     probs = policy.get_probs(states, actions)
+
     returns = []
+    G_t = 0  # This is G_{T+1}, the return at T+1 which is 0 since it's beyond the episode
 
-    rewards_np = np.array(rewards)
-    for i in range(len(rewards)):
-        discount_factors = discount_factor ** np.arange(len(rewards) - i)
-        return_i = np.sum(rewards_np[i:] * discount_factors)
-        returns.append(return_i)
+    for reward in reversed(rewards):  
 
-    returns = torch.tensor(returns, dtype=torch.float32).unsqueeze(1)  # Convert to tensor and add a dimension for Nx1 shape
-    loss = -torch.mean(torch.log(probs) * returns)
+        G_t = reward + discount_factor * G_t
+        returns.insert(0, G_t)
+        
+    returns = torch.tensor(returns, dtype=torch.float32).unsqueeze(1)
+    
+    # REINFORCE loss
+    loss = -torch.sum(torch.log(probs) * returns)
 
     return loss
 
 # YOUR CODE HERE
-
-loss = compute_reinforce_loss(policy, trajectory_data, 0.9)
-print(loss)
-
 
 def run_episodes_policy_gradient(policy, env, num_episodes, discount_factor, learn_rate, 
                                  sampling_function=sample_episode):
